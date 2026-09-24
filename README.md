@@ -13,6 +13,7 @@ AI operations governance copilot proof of concept.
 - Rule-based delay baseline and time-split logistic regression risk model with metrics and explanations.
 - Fictional SOP RAG assistant with section-aware retrieval, citations, and insufficient-evidence refusal.
 - Deterministic escalation recommendations with evidence, approval decisions, and audit events.
+- Daily manager summary endpoint with prioritized focus tasks and explicit next-action guidance.
 - Docker Compose scaffold for the API and PostgreSQL.
 
 ## Run locally
@@ -26,6 +27,7 @@ py -m app.data.generate --count 100
 py -m app.data.load data/generated/tasks.csv --database-url sqlite:///voiceiq.db
 py -m app.ml.train data/generated/tasks.csv
 py -m app.rag.ingest data/sops "When should a task receive manager review?"
+curl http://localhost:8000/api/v1/summaries/daily
 pytest
 uvicorn app.api.main:app --reload
 ```

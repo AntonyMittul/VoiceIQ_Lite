@@ -11,6 +11,7 @@ from app.db.models import Approval, AuditEvent, Escalation, TaskRecord
 from app.db.session import get_session
 from app.governance.service import recommend_escalation
 from app.rag.service import RagIndex
+from app.summaries.service import build_daily_summary
 
 app = FastAPI(
     title="VoiceIQ Lite API",
@@ -55,6 +56,25 @@ class DecisionRequest(BaseModel):
     reviewer_id: str
     decision: str
     comment: str | None = None
+
+
+class FocusTaskResponse(BaseModel):
+    task_id: str
+    title: str
+    reason: str
+    risk_score: float
+
+
+class DailySummaryResponse(BaseModel):
+    report_date: date
+    total_tasks: int
+    open_tasks: int
+    completed_tasks: int
+    overdue_tasks: int
+    blocked_tasks: int
+    high_priority_tasks: int
+    focus_tasks: list[FocusTaskResponse]
+    narrative: str
 
 
 @app.post("/api/v1/assistant/ask", response_model=AssistantResponse, tags=["assistant"])
@@ -189,6 +209,25 @@ def audit_events(limit: int = Query(default=100, ge=1, le=500), session: Session
         }
         for event in events
     ]
+
+
+@app.get("/api/v1/summaries/daily", response_model=DailySummaryResponse, tags=["summaries"])
+def daily_summary(
+    report_date: date | None = Query(default=None),  # noqa: B008
+    session: Session = Depends(get_session),  # noqa: B008
+) -> DailySummaryResponse:
+    summary = build_daily_summary(session.scalars(select(TaskRecord)).all(), report_date)
+    return DailySummaryResponse(
+        report_date=summary.report_date,
+        total_tasks=summary.total_tasks,
+        open_tasks=summary.open_tasks,
+        completed_tasks=summary.completed_tasks,
+        overdue_tasks=summary.overdue_tasks,
+        blocked_tasks=summary.blocked_tasks,
+        high_priority_tasks=summary.high_priority_tasks,
+        focus_tasks=[FocusTaskResponse(**task.__dict__) for task in summary.focus_tasks],
+        narrative=summary.narrative,
+    )
 
 
 class TaskListItem(BaseModel):
