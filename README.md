@@ -11,6 +11,7 @@ AI operations governance copilot proof of concept.
 - SQLAlchemy schema for tasks, predictions, documents, conversations, escalations, approvals, and audit events.
 - Idempotent CSV loader that validates records before inserting or updating tasks.
 - Rule-based delay baseline and time-split logistic regression risk model with metrics and explanations.
+- Fictional SOP RAG assistant with section-aware retrieval, citations, and insufficient-evidence refusal.
 - Docker Compose scaffold for the API and PostgreSQL.
 
 ## Run locally
@@ -23,6 +24,7 @@ Copy-Item .env.example .env
 py -m app.data.generate --count 100
 py -m app.data.load data/generated/tasks.csv --database-url sqlite:///voiceiq.db
 py -m app.ml.train data/generated/tasks.csv
+py -m app.rag.ingest data/sops "When should a task receive manager review?"
 pytest
 uvicorn app.api.main:app --reload
 ```

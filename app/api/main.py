@@ -1,4 +1,5 @@
 from datetime import UTC, date, datetime
+from pathlib import Path
 
 from fastapi import Depends, FastAPI, Query
 from pydantic import BaseModel
@@ -8,12 +9,15 @@ from sqlalchemy.orm import Session
 from app.data.schema import Task
 from app.db.models import TaskRecord
 from app.db.session import get_session
+from app.rag.service import RagIndex
 
 app = FastAPI(
     title="VoiceIQ Lite API",
     description="AI operations governance copilot proof of concept",
     version="0.1.0",
 )
+
+RAG_INDEX = RagIndex.from_directory(Path(__file__).resolve().parents[2] / "data" / "sops")
 
 
 @app.get("/health", tags=["system"])
@@ -24,6 +28,27 @@ def health() -> dict[str, str]:
 @app.get("/api/v1/tasks/schema", response_model=dict[str, object], tags=["data"])
 def task_schema() -> dict[str, object]:
     return Task.model_json_schema()
+
+
+class AssistantRequest(BaseModel):
+    question: str
+    top_k: int = 3
+
+
+class AssistantResponse(BaseModel):
+    answer: str
+    grounded: bool
+    citations: list[dict[str, str | float]]
+
+
+@app.post("/api/v1/assistant/ask", response_model=AssistantResponse, tags=["assistant"])
+def ask_assistant(request: AssistantRequest) -> AssistantResponse:
+    result = RAG_INDEX.answer(request.question, top_k=max(1, min(request.top_k, 5)))
+    return AssistantResponse(
+        answer=result.answer,
+        grounded=result.grounded,
+        citations=result.citations,
+    )
 
 
 class TaskListItem(BaseModel):
