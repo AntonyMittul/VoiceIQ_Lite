@@ -10,6 +10,7 @@ AI operations governance copilot proof of concept.
 - CSV validation with missing-column, duplicate-ID, and record-level error reporting.
 - SQLAlchemy schema for tasks, predictions, documents, conversations, escalations, approvals, and audit events.
 - Idempotent CSV loader that validates records before inserting or updating tasks.
+- Rule-based delay baseline and time-split logistic regression risk model with metrics and explanations.
 - Docker Compose scaffold for the API and PostgreSQL.
 
 ## Run locally
@@ -21,6 +22,7 @@ py -m pip install -e ".[dev]"
 Copy-Item .env.example .env
 py -m app.data.generate --count 100
 py -m app.data.load data/generated/tasks.csv --database-url sqlite:///voiceiq.db
+py -m app.ml.train data/generated/tasks.csv
 pytest
 uvicorn app.api.main:app --reload
 ```
