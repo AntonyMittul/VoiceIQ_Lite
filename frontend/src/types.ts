@@ -22,3 +22,19 @@ export type Task = {
   is_overdue: boolean;
   risk_score: number;
 };
+
+export type FocusTask = { task_id: string; title: string; reason: string; risk_score: number };
+export type DailySummary = {
+  report_date: string;
+  total_tasks: number;
+  open_tasks: number;
+  completed_tasks: number;
+  overdue_tasks: number;
+  blocked_tasks: number;
+  high_priority_tasks: number;
+  focus_tasks: FocusTask[];
+  narrative: string;
+};
+export type Citation = { source: string; section: string; chunk_id: string; score: number };
+export type AssistantResponse = { answer: string; grounded: boolean; citations: Citation[] };
+export type Escalation = { escalation_id?: number; task_id: string; rule_code: string; reason: string; evidence: Record<string, unknown>; status: string };

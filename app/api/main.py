@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.data.generate import generate_tasks
 from app.data.schema import Task
 from app.db.models import Approval, AuditEvent, Escalation, TaskRecord
 from app.db.session import get_session
@@ -228,6 +229,21 @@ def daily_summary(
         focus_tasks=[FocusTaskResponse(**task.__dict__) for task in summary.focus_tasks],
         narrative=summary.narrative,
     )
+
+
+@app.post("/api/v1/demo/seed", response_model=dict[str, int], tags=["system"])
+def seed_demo_data(session: Session = Depends(get_session)) -> dict[str, int]:  # noqa: B008
+    """Seed synthetic records for local demos; never use this endpoint with real data."""
+    task_count = session.scalar(select(TaskRecord).limit(1))
+    if task_count is not None:
+        return {"loaded": 0, "total": session.query(TaskRecord).count()}
+    frame = generate_tasks(80, seed=42)
+    loaded = 0
+    for row in frame.to_dict(orient="records"):
+        session.add(TaskRecord(**row))
+        loaded += 1
+    session.commit()
+    return {"loaded": loaded, "total": loaded}
 
 
 class TaskListItem(BaseModel):
