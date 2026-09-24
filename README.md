@@ -64,4 +64,14 @@ Copy-Item .env.example .env
 docker compose up --build
 ```
 
+Open `http://localhost:5173`. The React UI is served by Nginx, `/api` requests are proxied to FastAPI, and the API waits for PostgreSQL health before starting. Put `GEMINI_API_KEY` only in the local `.env`; `.dockerignore` prevents it from entering image build contexts.
+
+Useful checks:
+
+```powershell
+docker compose ps
+curl http://localhost:5173/healthz
+curl http://localhost:5173/api/health
+```
+
 All data in this proof of concept is synthetic. Do not upload real employee or customer data.
