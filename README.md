@@ -27,6 +27,23 @@ uvicorn app.api.main:app --reload
 
 Then open `http://localhost:8000/docs` or `http://localhost:8000/health`.
 
+## Run the dashboard
+
+In a second terminal:
+
+```powershell
+cd frontend
+npm install
+npm run dev
+```
+
+Open `http://localhost:5173`. To populate the dashboard locally, run the API and then load generated data into `voiceiq.db`:
+
+```powershell
+py -m app.data.generate --count 100
+py -m app.data.load data/generated/tasks.csv --database-url sqlite:///voiceiq.db
+```
+
 ## Run with Docker
 
 ```powershell
