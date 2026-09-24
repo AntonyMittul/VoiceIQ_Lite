@@ -107,16 +107,23 @@ def ask_assistant(request: AssistantRequest) -> AssistantResponse:
 @app.get("/api/v1/escalations/recommendations", response_model=list[EscalationResponse], tags=["governance"])
 def escalation_recommendations(session: Session = Depends(get_session)) -> list[EscalationResponse]:  # noqa: B008
     tasks = session.scalars(select(TaskRecord).where(TaskRecord.status != "completed")).all()
+    existing = session.scalars(select(Escalation).order_by(Escalation.created_at.desc())).all()
+    latest_by_task: dict[str, Escalation] = {}
+    for escalation in existing:
+        latest_by_task.setdefault(escalation.task_id, escalation)
     recommendations = []
     for task in tasks:
         recommendation = recommend_escalation(task)
         if recommendation:
+            escalation = latest_by_task.get(task.task_id)
             recommendations.append(
                 EscalationResponse(
+                    escalation_id=escalation.escalation_id if escalation else None,
                     task_id=task.task_id,
                     rule_code=recommendation.rule_code,
                     reason=recommendation.reason,
                     evidence=recommendation.evidence,
+                    status=escalation.status if escalation else "recommended",
                 )
             )
     return recommendations
@@ -134,6 +141,21 @@ def create_escalation(task_id: str, session: Session = Depends(get_session)) -> 
         from fastapi import HTTPException
 
         raise HTTPException(status_code=422, detail="Task does not meet escalation rules")
+
+    existing = session.scalar(
+        select(Escalation)
+        .where(Escalation.task_id == task_id, Escalation.status == "pending")
+        .order_by(Escalation.created_at.desc())
+    )
+    if existing is not None:
+        return EscalationResponse(
+            escalation_id=existing.escalation_id,
+            task_id=existing.task_id,
+            rule_code=existing.rule_code,
+            reason=existing.reason,
+            evidence=existing.evidence or {},
+            status=existing.status,
+        )
 
     escalation = Escalation(
         task_id=task_id,

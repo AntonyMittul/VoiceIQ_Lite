@@ -15,5 +15,6 @@
 .evidence-tags{min-height:28px}
 .decision-actions,.review-button{margin-top:auto}
 .review-button:disabled{opacity:.55;cursor:wait}
+.final-status{margin-top:auto;padding-top:10px;color:#8fa4bd;font:11px 'DM Mono';text-transform:capitalize}
 @media(max-width:700px){.governance-intro{display:block}.governance-stat{margin-top:24px;padding:18px 0 0;border-top:1px solid #2a405b;border-left:0}.escalation-list{grid-template-columns:1fr}}
 @media(max-width:680px){.app-shell{display:block}.sidebar{width:100%;padding:14px;border-right:0;border-bottom:1px solid #26344a}.brand{margin:0 0 15px}nav{display:flex;overflow-x:auto}.sidebar-footer{display:none}.content{padding:26px 14px 40px}.topbar{align-items:flex-start;gap:18px;flex-direction:column}.top-actions{width:100%;justify-content:space-between}.metrics-grid{grid-template-columns:repeat(2,1fr)}.metric-card{padding:15px}.metric-card strong{font-size:24px}.summary-banner{align-items:flex-start;flex-wrap:wrap}.summary-banner button{margin-left:48px}.filters{justify-content:flex-start;flex-wrap:wrap;margin:18px 0}.inline-detail{display:block;margin-top:18px}}
