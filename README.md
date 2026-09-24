@@ -12,6 +12,7 @@ AI operations governance copilot proof of concept.
 - Idempotent CSV loader that validates records before inserting or updating tasks.
 - Rule-based delay baseline and time-split logistic regression risk model with metrics and explanations.
 - Fictional SOP RAG assistant with section-aware retrieval, citations, and insufficient-evidence refusal.
+- Deterministic escalation recommendations with evidence, approval decisions, and audit events.
 - Docker Compose scaffold for the API and PostgreSQL.
 
 ## Run locally

@@ -7,8 +7,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.data.schema import Task
-from app.db.models import TaskRecord
+from app.db.models import Approval, AuditEvent, Escalation, TaskRecord
 from app.db.session import get_session
+from app.governance.service import recommend_escalation
 from app.rag.service import RagIndex
 
 app = FastAPI(
@@ -41,6 +42,21 @@ class AssistantResponse(BaseModel):
     citations: list[dict[str, str | float]]
 
 
+class EscalationResponse(BaseModel):
+    escalation_id: int | None = None
+    task_id: str
+    rule_code: str
+    reason: str
+    evidence: dict[str, object]
+    status: str = "recommended"
+
+
+class DecisionRequest(BaseModel):
+    reviewer_id: str
+    decision: str
+    comment: str | None = None
+
+
 @app.post("/api/v1/assistant/ask", response_model=AssistantResponse, tags=["assistant"])
 def ask_assistant(request: AssistantRequest) -> AssistantResponse:
     result = RAG_INDEX.answer(request.question, top_k=max(1, min(request.top_k, 5)))
@@ -49,6 +65,130 @@ def ask_assistant(request: AssistantRequest) -> AssistantResponse:
         grounded=result.grounded,
         citations=result.citations,
     )
+
+
+@app.get("/api/v1/escalations/recommendations", response_model=list[EscalationResponse], tags=["governance"])
+def escalation_recommendations(session: Session = Depends(get_session)) -> list[EscalationResponse]:  # noqa: B008
+    tasks = session.scalars(select(TaskRecord).where(TaskRecord.status != "completed")).all()
+    recommendations = []
+    for task in tasks:
+        recommendation = recommend_escalation(task)
+        if recommendation:
+            recommendations.append(
+                EscalationResponse(
+                    task_id=task.task_id,
+                    rule_code=recommendation.rule_code,
+                    reason=recommendation.reason,
+                    evidence=recommendation.evidence,
+                )
+            )
+    return recommendations
+
+
+@app.post("/api/v1/escalations/{task_id}", response_model=EscalationResponse, tags=["governance"])
+def create_escalation(task_id: str, session: Session = Depends(get_session)) -> EscalationResponse:  # noqa: B008
+    task = session.get(TaskRecord, task_id)
+    if task is None:
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=404, detail="Task not found")
+    recommendation = recommend_escalation(task)
+    if recommendation is None:
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=422, detail="Task does not meet escalation rules")
+
+    escalation = Escalation(
+        task_id=task_id,
+        rule_code=recommendation.rule_code,
+        reason=recommendation.reason,
+        evidence=recommendation.evidence,
+        status="pending",
+    )
+    session.add(escalation)
+    session.flush()
+    session.add(
+        AuditEvent(
+            event_type="escalation_recommended",
+            actor_id=None,
+            entity_type="escalation",
+            entity_id=str(escalation.escalation_id),
+            payload={"task_id": task_id, "reason": recommendation.reason},
+        )
+    )
+    session.commit()
+    return EscalationResponse(
+        escalation_id=escalation.escalation_id,
+        task_id=task_id,
+        rule_code=escalation.rule_code,
+        reason=escalation.reason,
+        evidence=escalation.evidence or {},
+        status=escalation.status,
+    )
+
+
+@app.post("/api/v1/escalations/{escalation_id}/decision", response_model=EscalationResponse, tags=["governance"])
+def decide_escalation(
+    escalation_id: int,
+    request: DecisionRequest,
+    session: Session = Depends(get_session),  # noqa: B008
+) -> EscalationResponse:
+    from fastapi import HTTPException
+
+    if request.decision not in {"approved", "rejected"}:
+        raise HTTPException(status_code=422, detail="Decision must be approved or rejected")
+    escalation = session.get(Escalation, escalation_id)
+    if escalation is None:
+        raise HTTPException(status_code=404, detail="Escalation not found")
+    if not escalation.reason or not escalation.evidence:
+        raise HTTPException(status_code=409, detail="Escalation requires visible reason and evidence")
+    if escalation.status != "pending":
+        raise HTTPException(status_code=409, detail="Escalation already has a final decision")
+
+    escalation.status = request.decision
+    session.add(
+        Approval(
+            escalation_id=escalation_id,
+            reviewer_id=request.reviewer_id,
+            decision=request.decision,
+            comment=request.comment,
+        )
+    )
+    session.add(
+        AuditEvent(
+            event_type="escalation_decided",
+            actor_id=request.reviewer_id,
+            entity_type="escalation",
+            entity_id=str(escalation_id),
+            payload={"decision": request.decision, "comment": request.comment},
+        )
+    )
+    session.commit()
+    return EscalationResponse(
+        escalation_id=escalation.escalation_id,
+        task_id=escalation.task_id,
+        rule_code=escalation.rule_code,
+        reason=escalation.reason,
+        evidence=escalation.evidence,
+        status=escalation.status,
+    )
+
+
+@app.get("/api/v1/audit-events", response_model=list[dict[str, object]], tags=["governance"])
+def audit_events(limit: int = Query(default=100, ge=1, le=500), session: Session = Depends(get_session)) -> list[dict[str, object]]:  # noqa: B008
+    events = session.scalars(select(AuditEvent).order_by(AuditEvent.created_at.desc()).limit(limit)).all()
+    return [
+        {
+            "event_id": event.event_id,
+            "event_type": event.event_type,
+            "actor_id": event.actor_id,
+            "entity_type": event.entity_type,
+            "entity_id": event.entity_id,
+            "payload": event.payload,
+            "created_at": event.created_at.isoformat(),
+        }
+        for event in events
+    ]
 
 
 class TaskListItem(BaseModel):
