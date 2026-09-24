@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import UTC, date, datetime
 from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -42,9 +42,8 @@ class Task(BaseModel):
         return value
 
     def is_overdue(self, as_of: date | None = None) -> bool:
-        reference_date = as_of or date.today()
+        reference_date = as_of or datetime.now(UTC).date()
         return self.status != TaskStatus.COMPLETED and self.due_date < reference_date
 
 
 REQUIRED_TASK_COLUMNS = tuple(Task.model_fields)
-

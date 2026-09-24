@@ -1,6 +1,6 @@
 import argparse
 import random
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 import pandas as pd
@@ -8,7 +8,7 @@ import pandas as pd
 
 def generate_tasks(count: int = 100, seed: int = 42, as_of: date | None = None) -> pd.DataFrame:
     rng = random.Random(seed)
-    today = as_of or date.today()
+    today = as_of or datetime.now(UTC).date()
     regions = ["Hyderabad", "Bengaluru", "Pune", "Chennai"]
     priorities = ["low", "medium", "high", "critical"]
     rows = []
@@ -52,4 +52,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

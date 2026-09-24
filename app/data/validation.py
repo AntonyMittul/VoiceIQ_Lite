@@ -32,7 +32,8 @@ def validate_tasks_frame(frame: pd.DataFrame) -> tuple[list[Task], ValidationRep
     errors: list[dict[str, object]] = []
     for index, row in frame.iterrows():
         try:
-            valid_tasks.append(Task.model_validate(row.to_dict()))
+            clean_row = row.where(pd.notna(row), None).to_dict()
+            valid_tasks.append(Task.model_validate(clean_row))
         except ValidationError as exc:
             errors.append({"row": int(index), "errors": exc.errors(include_url=False)})
 
@@ -48,4 +49,3 @@ def validate_tasks_frame(frame: pd.DataFrame) -> tuple[list[Task], ValidationRep
 
 def validate_tasks_csv(path: str | Path) -> tuple[list[Task], ValidationReport]:
     return validate_tasks_frame(pd.read_csv(path))
-
