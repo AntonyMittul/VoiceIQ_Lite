@@ -11,6 +11,7 @@ from app.data.schema import Task
 from app.db.models import Approval, AuditEvent, Escalation, TaskRecord
 from app.db.session import get_session
 from app.governance.service import recommend_escalation
+from app.llm.gemini import answer_with_gemini
 from app.rag.service import RagIndex
 from app.summaries.service import build_daily_summary
 
@@ -80,11 +81,26 @@ class DailySummaryResponse(BaseModel):
 
 @app.post("/api/v1/assistant/ask", response_model=AssistantResponse, tags=["assistant"])
 def ask_assistant(request: AssistantRequest) -> AssistantResponse:
-    result = RAG_INDEX.answer(request.question, top_k=max(1, min(request.top_k, 5)))
+    retrieved = RAG_INDEX.retrieve(request.question, top_k=max(1, min(request.top_k, 5)))
+    grounded_results = [result for result in retrieved if result.score >= RAG_INDEX.min_score]
+    llm_result = answer_with_gemini(request.question, grounded_results)
+    if llm_result is None:
+        result = RAG_INDEX.answer(request.question, top_k=max(1, min(request.top_k, 5)))
+        return AssistantResponse(answer=result.answer, grounded=result.grounded, citations=result.citations)
+    citations = [
+        {
+            "source": result.chunk.source,
+            "section": result.chunk.section,
+            "chunk_id": result.chunk.chunk_id,
+            "score": result.score,
+        }
+        for result in grounded_results
+        if result.chunk.chunk_id in llm_result.citation_chunk_ids
+    ]
     return AssistantResponse(
-        answer=result.answer,
-        grounded=result.grounded,
-        citations=result.citations,
+        answer=llm_result.answer,
+        grounded=llm_result.grounded,
+        citations=citations,
     )
 
 

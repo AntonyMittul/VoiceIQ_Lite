@@ -14,6 +14,7 @@ AI operations governance copilot proof of concept.
 - Fictional SOP RAG assistant with section-aware retrieval, citations, and insufficient-evidence refusal.
 - Deterministic escalation recommendations with evidence, approval decisions, and audit events.
 - Daily manager summary endpoint with prioritized focus tasks and explicit next-action guidance.
+- Gemini 3.1 Flash-Lite generation layer with structured, citation-checked responses.
 - Docker Compose scaffold for the API and PostgreSQL.
 
 ## Run locally
@@ -23,6 +24,11 @@ py -m venv .venv
 .\.venv\Scripts\Activate.ps1
 py -m pip install -e ".[dev]"
 Copy-Item .env.example .env
+```
+
+Set `GEMINI_API_KEY` in `.env` to enable Gemini responses. The configured model is `gemini-3.1-flash-lite`.
+
+```powershell
 py -m app.data.generate --count 100
 py -m app.data.load data/generated/tasks.csv --database-url sqlite:///voiceiq.db
 py -m app.ml.train data/generated/tasks.csv
